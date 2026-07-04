@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "云剪贴板",
+  "short_name": "云剪贴板",
+  "description": "跨设备同步文本与文件的轻量云剪贴板。",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/icon/friends_link_send_share_icon_123622.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon/scan-qr-code.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

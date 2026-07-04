@@ -1,0 +1,225 @@
+:root {
+  color-scheme: dark;
+  --font-sans: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+
+  /* Page */
+  --bg-page: #0f1117;
+  --bg-elevated: rgba(22, 24, 34, 0.94);
+  --bg-card: rgba(26, 28, 40, 0.90);
+  --bg-card-hover: rgba(32, 34, 48, 0.94);
+  --bg-input: rgba(18, 20, 30, 0.96);
+
+  /* Borders */
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Text */
+  --text-primary: #e8eaef;
+  --text-secondary: #9ca0b0;
+  --text-muted: #5c6078;
+  --text-inverse: #0f1117;
+
+  /* Accent (default: sky blue) */
+  --accent: #0ea5e9;
+  --accent-hover: #38bdf8;
+  --accent-soft: rgba(14, 165, 233, 0.12);
+  --accent-glow: rgba(14, 165, 233, 0.28);
+  --accent-text: #38bdf8;
+
+  /* Semantic */
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.12);
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.55);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --size-button: 40px;
+  --max-width: 1440px;
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Buttons */
+  --btn-primary-text: #ffffff;
+  --btn-danger-text: #ffffff;
+  --btn-secondary-bg: rgba(255, 255, 255, 0.06);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.12);
+  --btn-ghost-text: #9ca0b0;
+  --btn-ghost-hover-bg: rgba(255, 255, 255, 0.06);
+}
+
+/* ====== Theme: Light ====== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-page: #f4f5f9;
+  --bg-elevated: rgba(255, 255, 255, 0.92);
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f9fc;
+  --bg-input: #f0f1f5;
+
+  --border-soft: rgba(0, 0, 0, 0.06);
+  --border-medium: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.15);
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #555770;
+  --text-muted: #8e90a6;
+  --text-inverse: #ffffff;
+
+  --accent: #0284c7;
+  --accent-hover: #0ea5e9;
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --accent-glow: rgba(2, 132, 199, 0.16);
+  --accent-text: #0284c7;
+
+  --success: #059669;
+  --success-soft: rgba(5, 150, 105, 0.08);
+  --warning: #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.08);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.08);
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  /* Buttons */
+  --btn-primary-text: #ffffff;
+  --btn-danger-text: #ffffff;
+  --btn-secondary-bg: rgba(0, 0, 0, 0.05);
+  --btn-secondary-hover-bg: rgba(0, 0, 0, 0.10);
+  --btn-ghost-text: #555770;
+  --btn-ghost-hover-bg: rgba(0, 0, 0, 0.05);
+}
+
+/* Light-mode icon fix: remove invert filter so icons render in their natural dark color */
+:root[data-theme="light"] .btn-icon,
+:root[data-theme="light"] .room-code-copy-icon,
+:root[data-theme="light"] .msg-action-icon {
+  filter: none;
+}
+
+/* 主按钮/FAB 上的图标始终为白色（底色为强调色，深色/浅色统一） */
+:root[data-theme="light"] .btn-inline-icon-inverse,
+:root[data-theme="light"] .fab-icon-inverse,
+:root[data-theme="dark"] .btn-inline-icon-inverse,
+:root[data-theme="dark"] .fab-icon-inverse {
+  filter: brightness(0) invert(1);
+}
+
+/* Dark-mode icon visibility: ensure icons are light on dark backgrounds */
+:root[data-theme="dark"] .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+/* ====== Accent Color Presets ====== */
+:root[data-accent="sky"] {
+  --accent: #0ea5e9;
+  --accent-hover: #38bdf8;
+  --accent-soft: rgba(14, 165, 233, 0.12);
+  --accent-glow: rgba(14, 165, 233, 0.28);
+  --accent-text: #38bdf8;
+}
+
+:root[data-accent="emerald"] {
+  --accent: #10b981;
+  --accent-hover: #34d399;
+  --accent-soft: rgba(16, 185, 129, 0.12);
+  --accent-glow: rgba(16, 185, 129, 0.28);
+  --accent-text: #34d399;
+}
+
+:root[data-accent="amber"] {
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --accent-glow: rgba(245, 158, 11, 0.28);
+  --accent-text: #fbbf24;
+}
+
+:root[data-accent="rose"] {
+  --accent: #f43f5e;
+  --accent-hover: #fb7185;
+  --accent-soft: rgba(244, 63, 94, 0.12);
+  --accent-glow: rgba(244, 63, 94, 0.28);
+  --accent-text: #fb7185;
+}
+
+:root[data-accent="indigo"] {
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.28);
+  --accent-text: #818cf8;
+}
+
+:root[data-theme="light"][data-accent="sky"] {
+  --accent: #0284c7;
+  --accent-hover: #0ea5e9;
+  --accent-soft: rgba(2, 132, 199, 0.08);
+  --accent-glow: rgba(2, 132, 199, 0.16);
+  --accent-text: #0284c7;
+}
+
+:root[data-theme="light"][data-accent="emerald"] {
+  --accent: #059669;
+  --accent-hover: #10b981;
+  --accent-soft: rgba(5, 150, 105, 0.08);
+  --accent-glow: rgba(5, 150, 105, 0.16);
+  --accent-text: #059669;
+}
+
+:root[data-theme="light"][data-accent="amber"] {
+  --accent: #d97706;
+  --accent-hover: #f59e0b;
+  --accent-soft: rgba(217, 119, 6, 0.08);
+  --accent-glow: rgba(217, 119, 6, 0.16);
+  --accent-text: #d97706;
+}
+
+:root[data-theme="light"][data-accent="rose"] {
+  --accent: #e11d48;
+  --accent-hover: #f43f5e;
+  --accent-soft: rgba(225, 29, 72, 0.08);
+  --accent-glow: rgba(225, 29, 72, 0.16);
+  --accent-text: #e11d48;
+}
+
+:root[data-theme="light"][data-accent="indigo"] {
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --accent-soft: rgba(79, 70, 229, 0.08);
+  --accent-glow: rgba(79, 70, 229, 0.16);
+  --accent-text: #4f46e5;
+}

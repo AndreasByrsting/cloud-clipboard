@@ -1,0 +1,12 @@
+.git
+.claude
+.trae
+README.md
+data
+*.log
+*.tmp
+*.db
+*.db-shm
+*.db-wal
+cloud-clipboard
+cloud-clipboard.exe
