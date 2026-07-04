@@ -51,7 +51,7 @@ func main() {
 		logger.Fatal("migrate database: %v", err)
 	}
 
-	now := time.Now().UTC()
+	now := time.Now().In(config.TimeLocation)
 	settingsStore := store.NewSettingsStore(database)
 	if err := settingsStore.EnsureDefaults(now); err != nil {
 		logger.Fatal("ensure default settings: %v", err)
@@ -133,6 +133,7 @@ func logConfig(cfg config.Config) {
 	logger.Info("  listen:       %s", cfg.ListenAddr)
 	logger.Info("  database:     %s", cfg.DBPath)
 	logger.Info("  uploads:      %s", cfg.UploadDir)
+	logger.Info("  timezone:     %s", cfg.Timezone)
 	logger.Info("  cleanup:      every %v", cfg.CleanupInterval)
 	logger.Info("  max upload:   %d bytes", cfg.MaxUploadBytes)
 	if cfg.ResetAdminPassword != "" {

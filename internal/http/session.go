@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"cloud-clipboard/internal/config"
 )
 
 type Session struct {
@@ -26,7 +28,7 @@ func NewSessionStore() *SessionStore {
 }
 
 func (s *SessionStore) Create(token string, w http.ResponseWriter) {
-	now := time.Now().UTC()
+	now := time.Now().In(config.TimeLocation)
 	s.mu.Lock()
 	s.tokens[token] = Session{Token: token, CreatedAt: now, LastSeenAt: now}
 	s.mu.Unlock()
@@ -53,7 +55,7 @@ func (s *SessionStore) Get(r *http.Request) (Session, bool) {
 	if !ok {
 		return Session{}, false
 	}
-	session.LastSeenAt = time.Now().UTC()
+	session.LastSeenAt = time.Now().In(config.TimeLocation)
 	s.tokens[cookie.Value] = session
 	return session, true
 }

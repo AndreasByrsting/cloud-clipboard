@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud-clipboard/internal/config"
 	"cloud-clipboard/internal/service"
 )
 
@@ -145,5 +146,5 @@ func sinceEventID(r *http.Request) (int64, error) {
 }
 
 func nowUTC() time.Time {
-	return time.Now().UTC()
+	return time.Now().In(config.TimeLocation)
 }

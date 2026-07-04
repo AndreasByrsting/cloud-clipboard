@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud-clipboard/internal/config"
 	"cloud-clipboard/internal/service"
 	"cloud-clipboard/internal/store"
 )
@@ -34,7 +35,7 @@ func (h *AdminRoomHandler) Manage(w http.ResponseWriter, r *http.Request) {
 				errorJSON(w, http.StatusInternalServerError, err.Error())
 				return
 			}
-			now := time.Now().UTC()
+			now := time.Now().In(config.TimeLocation)
 			nowUnix := now.Unix()
 			stats, _ := h.rooms.GetRoomStats(nowUnix)
 			totalMsgs, totalFiles, _ := h.rooms.GetMessageStats()

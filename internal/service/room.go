@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud-clipboard/internal/config"
 	"cloud-clipboard/internal/realtime"
 	"cloud-clipboard/internal/store"
 )
@@ -276,7 +277,7 @@ func (s *RoomService) ExtendRoom(roomCode string) (store.Room, error) {
 	if err != nil {
 		return store.Room{}, err
 	}
-	now := time.Now().UTC().Unix()
+	now := time.Now().In(config.TimeLocation).Unix()
 	remaining := *room.DeleteAfter - now
 	if remaining > int64(canExtendSec) {
 		return store.Room{}, fmt.Errorf("room still has more than %d hours remaining", canExtendSec/3600)
@@ -308,7 +309,7 @@ func (s *RoomService) TogglePinMessage(messageID int64) (store.Message, realtime
 	if err != nil {
 		return message, realtime.Event{}, err
 	}
-	now := time.Now().UTC()
+	now := time.Now().In(config.TimeLocation)
 	eventType := "message_unpinned"
 	if message.IsPinned {
 		eventType = "message_pinned"
@@ -331,7 +332,7 @@ func (s *RoomService) DeleteMessage(messageID int64) (realtime.Event, error) {
 	if err != nil {
 		return realtime.Event{}, err
 	}
-	now := time.Now().UTC()
+	now := time.Now().In(config.TimeLocation)
 	if message.Type == "file" && s.files != nil {
 		if err := s.files.Delete(message.FilePath); err != nil {
 			return realtime.Event{}, err
@@ -399,7 +400,7 @@ func (s *RoomService) deleteRoom(roomCode string, public bool) error {
 	if err := s.uploadSessions.DeleteByRoomCode(roomCode); err != nil {
 		return err
 	}
-	now := time.Now().UTC().Unix()
+	now := time.Now().In(config.TimeLocation).Unix()
 	s.hub.Broadcast(roomCode, realtime.Event{RoomCode: roomCode, Type: "room_deleted", CreatedAt: now})
 	if public {
 		return s.rooms.PublicDeleteByCode(roomCode)

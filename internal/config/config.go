@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// TimeLocation is the configured timezone location, set during Load().
+// Defaults to Asia/Shanghai.
+var TimeLocation *time.Location
+
 const (
 	defaultListenAddr               = ":8080"
 	defaultDBPath                   = "./data/clipboard.db"
@@ -15,6 +19,7 @@ const (
 	defaultCleanupIntervalSec       = 60
 	defaultMaxUploadBytes     int64 = 500 * 1024 * 1024
 	DefaultAdminPassword            = "123456789"
+	defaultTimezone                 = "Asia/Shanghai"
 )
 
 type Config struct {
@@ -25,6 +30,7 @@ type Config struct {
 	CleanupInterval    time.Duration
 	MaxUploadBytes     int64
 	ResetAdminPassword string
+	Timezone           string
 }
 
 func Load() (Config, error) {
@@ -35,7 +41,14 @@ func Load() (Config, error) {
 		LogLevel:        envString("APP_LOG_LEVEL", defaultLogLevel),
 		CleanupInterval: time.Duration(envInt("APP_CLEANUP_INTERVAL_SEC", defaultCleanupIntervalSec, 5)) * time.Second,
 		MaxUploadBytes:  envInt64("APP_MAX_UPLOAD_BYTES", defaultMaxUploadBytes, 1024),
+		Timezone:        envString("APP_TIMEZONE", defaultTimezone),
 	}
+
+	loc, err := time.LoadLocation(cfg.Timezone)
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid timezone %q: %w", cfg.Timezone, err)
+	}
+	TimeLocation = loc
 
 	if cfg.ListenAddr == "" {
 		return Config{}, fmt.Errorf("APP_LISTEN_ADDR cannot be empty")
