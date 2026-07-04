@@ -4,13 +4,14 @@ import (
 	"context"
 	"time"
 
+	"cloud-clipboard/internal/config"
 	"cloud-clipboard/internal/logger"
 	"cloud-clipboard/internal/service"
 )
 
 func StartCleanup(ctx context.Context, interval time.Duration, maintenance *service.MaintenanceService) {
 	// 启动时立即执行一次清理
-	if err := maintenance.Run(time.Now()); err != nil {
+	if err := maintenance.Run(time.Now().In(config.TimeLocation)); err != nil {
 		logger.Warn("startup cleanup failed: %v", err)
 	}
 
@@ -22,7 +23,7 @@ func StartCleanup(ctx context.Context, interval time.Duration, maintenance *serv
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			if err := maintenance.Run(now); err != nil {
+			if err := maintenance.Run(now.In(config.TimeLocation)); err != nil {
 				logger.Error("cleanup task failed: %v", err)
 			}
 		}
