@@ -1326,6 +1326,29 @@
   width: 100%;
 }
 
+.github-star-block {
+  text-align: center;
+  padding-top: 4px;
+}
+
+.github-star-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.github-star-link:hover {
+  color: var(--text-primary);
+}
+
+.github-star-icon {
+  flex-shrink: 0;
+}
+
 .admin-tabs {
   display: flex;
   gap: var(--space-2);
