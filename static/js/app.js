@@ -190,6 +190,7 @@
     state.mobileQRVisible = false;
     state.mobileRoomCardVisible = false;
     state.workspaceTransition = '';
+    state.showScrollTop = false;
   }
 
   function openAdminView() {
@@ -839,24 +840,28 @@
         >${renderIcon(item.icon, item.label, 'fab-icon fab-icon-inverse')}</button>
       `).join('');
       el.className = `floating-actions mobile-fab-stack ${expanded ? 'expanded' : ''}`;
+      const scrollTopBtn = state.showScrollTop ? `<button class="fab-button fab-button-brand fab-primary-button" data-action="scroll-top" type="button" aria-label="回到顶部" title="回到顶部">${renderIcon('chevron-up', '回到顶部', 'fab-icon fab-icon-inverse')}</button>` : '';
       el.innerHTML = `
         <div class="fab-mobile-shell">
           <div class="fab-primary-group ${expanded ? 'expanded' : ''}">
             ${expanded ? secondaryButtons : `<button class="fab-button fab-button-brand fab-plus-button" data-action="toggle-mobile-fab-menu" type="button" aria-label="更多操作" title="更多操作">${renderIcon('plus', '更多操作', 'fab-icon fab-icon-inverse')}</button>`}
             <button class="fab-button fab-button-brand fab-primary-button" data-action="toggle-recent-rooms" type="button" aria-label="最近房间" title="最近房间">${renderIcon('menu', '最近房间', 'fab-icon fab-icon-inverse')}</button>
-            <button class="fab-button fab-button-brand fab-primary-button" data-action="scroll-top" type="button" aria-label="回到顶部" title="回到顶部">${renderIcon('chevron-up', '回到顶部', 'fab-icon fab-icon-inverse')}</button>
+            ${scrollTopBtn}
           </div>
         </div>
       `;
       return;
     }
 
-    const buttons = [
-      `<button class="fab-button" data-action="scroll-top" type="button" aria-label="回到顶部" title="回到顶部">${renderIcon('chevron-up', '回到顶部', 'fab-icon fab-icon-inverse')}</button>`,
+    const buttons = [];
+    if (state.showScrollTop) {
+      buttons.push(`<button class="fab-button" data-action="scroll-top" type="button" aria-label="回到顶部" title="回到顶部">${renderIcon('chevron-up', '回到顶部', 'fab-icon fab-icon-inverse')}</button>`);
+    }
+    buttons.push(
       `<button class="fab-button" data-action="toggle-recent-rooms" type="button" aria-label="最近房间" title="最近房间">${renderIcon('menu', '最近房间', 'fab-icon fab-icon-inverse')}</button>`,
       `<button class="fab-button" data-action="toggle-accent-picker" type="button" aria-label="强调色" title="强调色">${renderIcon('palette', '强调色', 'fab-icon fab-icon-inverse')}</button>`,
       `<button class="fab-button" data-action="toggle-theme" type="button" aria-label="切换主题" title="切换主题">${renderIcon(state.theme === 'dark' ? 'sun-medium' : 'moon', '切换主题', 'fab-icon fab-icon-inverse')}</button>`
-    ];
+    );
     el.className = 'floating-actions';
     el.innerHTML = buttons.join('');
   }
@@ -913,14 +918,26 @@
   function renderWelcomeCard() {
     return `
       <div class="card room-info welcome-card ${!state.currentRoom ? 'welcome-card-disconnected' : ''}">
-        <div class="card-title">欢迎使用 云剪贴板</div>
-        <p class="card-subtitle" style="margin-top:8px">创建新房间或通过房间号加入已有房间</p>
-        <div style="margin-top:16px;display:flex;flex-direction:column;gap:var(--space-2)">
-          <button class="btn btn-primary btn-lg btn-block" data-action="create-room">${renderIcon('plus', '创建', 'btn-icon btn-inline-icon-inverse')} 创建新房间</button>
+        <div class="welcome-hero">
+          <div class="welcome-brand-mark">${renderIcon('friends_link_send_share_icon_123622', '云剪贴板', 'welcome-brand-icon')}</div>
+          <h1 class="welcome-title">云剪贴板</h1>
+          <p class="welcome-tagline">跨设备即时同步，安全便捷</p>
         </div>
-        <div style="margin-top:12px">
-          <input id="join-room-input" type="text" placeholder="输入房间号加入" value="${esc(state.roomCode)}" style="text-align:center;font-family:var(--font-mono);text-transform:uppercase" />
-          <button class="btn btn-secondary btn-block" data-action="join-room" style="margin-top:8px">加入房间</button>
+        <div class="welcome-actions">
+          <button class="btn btn-primary btn-lg btn-block welcome-create-btn" data-action="create-room">
+            ${renderIcon('plus', '创建', 'btn-icon btn-inline-icon-inverse')}
+            <span class="welcome-btn-text">创建新房间</span>
+            <span class="welcome-btn-hint">一键创建，即刻开始</span>
+          </button>
+          <div class="welcome-divider"><span>或</span></div>
+          <div class="welcome-join-group">
+            <div class="welcome-join-input-wrap">
+              <input id="join-room-input" type="text" placeholder="输入房间号" value="${esc(state.roomCode)}" class="welcome-join-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onfocus="this.placeholder=''" onblur="this.placeholder='输入房间号'" />
+              <button class="btn btn-secondary welcome-join-btn" data-action="join-room">
+                ${renderIcon('arrow-right', '加入', 'btn-icon')} 加入
+              </button>
+            </div>
+          </div>
         </div>
       </div>`;
   }
@@ -1573,9 +1590,17 @@
       }
     });
 
-    const closeFabOnScroll = () => closeMobileFabMenu();
-    window.addEventListener('scroll', closeFabOnScroll, { passive: true });
-    app.addEventListener('scroll', closeFabOnScroll, { passive: true, capture: true });
+    const handleScroll = () => {
+      closeMobileFabMenu();
+      const threshold = window.innerHeight * 3;
+      const scrolled = window.scrollY > threshold;
+      if (state.showScrollTop !== scrolled) {
+        state.showScrollTop = scrolled;
+        updateFloatingActions();
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    app.addEventListener('scroll', handleScroll, { passive: true, capture: true });
   }
 
   function cancelConfirm() {

@@ -590,6 +590,220 @@
   justify-content: center;
 }
 
+/* ====== Welcome Card ====== */
+.welcome-card {
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.welcome-brand-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  box-shadow: 0 8px 32px var(--accent-glow);
+  animation: welcomePulse 3s ease-in-out infinite;
+}
+
+@keyframes welcomePulse {
+  0%, 100% { box-shadow: 0 8px 32px var(--accent-glow); }
+  50% { box-shadow: 0 12px 40px var(--accent-glow), 0 0 0 4px var(--accent-soft); }
+}
+
+.welcome-brand-icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+.welcome-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.welcome-tagline {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.welcome-create-btn {
+  min-height: 56px;
+  border-radius: 14px;
+  font-size: 1rem;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 24px;
+  box-shadow: 0 4px 20px var(--accent-glow);
+  transition: all var(--duration-base) var(--ease-standard);
+}
+
+.welcome-create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px var(--accent-glow);
+}
+
+.welcome-create-btn .btn-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.welcome-btn-text {
+  font-weight: 700;
+}
+
+.welcome-btn-hint {
+  font-size: 0.72rem;
+  font-weight: 400;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.welcome-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  user-select: none;
+}
+
+.welcome-divider::before,
+.welcome-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.welcome-join-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-join-input-wrap {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.welcome-join-input {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.welcome-join-input::placeholder {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.welcome-join-btn {
+  flex-shrink: 0;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.welcome-join-btn .btn-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.empty-state-disconnected {
+  flex: 0;
+  width: min(100%, 760px);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.empty-state-disconnected .empty-state-icon {
+  width: 40px;
+  height: 40px;
+  opacity: 0.25;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-state-disconnected h3 {
+  font-size: 1.1rem;
+  margin-top: var(--space-2);
+}
+
+.empty-state-disconnected p {
+  font-size: 0.85rem;
+  max-width: 480px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .welcome-card {
+    padding: var(--space-5) var(--space-4);
+  }
+  .welcome-brand-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+  .welcome-brand-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .welcome-title {
+    font-size: 1.2rem;
+  }
+  .welcome-create-btn {
+    min-height: 50px;
+    font-size: 0.95rem;
+  }
+  .welcome-join-input {
+    font-size: 0.88rem;
+  }
+  .empty-state-disconnected {
+    padding: var(--space-5) var(--space-4);
+  }
+  .empty-state-disconnected h3 {
+    font-size: 1rem;
+  }
+  .empty-state-disconnected p {
+    font-size: 0.8rem;
+  }
+}
+
 /* ====== QR Code ====== */
 .qr-section {
   margin-top: var(--space-4);

@@ -62,11 +62,11 @@ func main() {
 	if err := adminService.EnsureInitialized(cfg.ResetAdminPassword, now); err != nil {
 		logger.Fatal("ensure admin credentials: %v", err)
 	}
-	// 检查是否首次运行（默认密码激活）
+	// 检查是否已修改管理员密码
 	cred, found, _ := adminService.Status()
 	if found && cred.DefaultPasswordActive {
 		logger.Warn("============================================")
-		logger.Warn(" 首次运行！默认管理员密码: %s", config.DefaultAdminPassword)
+		logger.Warn(" 初始密码未修改！默认管理员密码: %s", config.DefaultAdminPassword)
 		logger.Warn(" 请尽快登录管理后台修改密码！")
 		logger.Warn("============================================")
 	}

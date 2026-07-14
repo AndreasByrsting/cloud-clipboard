@@ -54,6 +54,7 @@ window.CloudClipboardState = {
       workspaceTransition: '',
       recentRooms: [],
       recentRoomsDrawerOpen: false,
+      showScrollTop: false,
       // lifecycle timer
       lifecycleTimer: null,
       origin: window.location.origin,
