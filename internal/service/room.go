@@ -52,12 +52,12 @@ func (s *RoomService) GetRoomStats(nowUnix int64) (store.RoomStats, error) {
 	return s.rooms.GetStats(nowUnix)
 }
 
-func (s *RoomService) GetMessageStats() (total, files int, err error) {
-	total, err = s.messages.CountAll()
+func (s *RoomService) GetMessageStats(nowUnix int64) (total, files int, err error) {
+	total, err = s.messages.CountAll(nowUnix)
 	if err != nil {
 		return 0, 0, err
 	}
-	files, err = s.messages.CountFiles()
+	files, err = s.messages.CountFiles(nowUnix)
 	return total, files, err
 }
 

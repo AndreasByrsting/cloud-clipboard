@@ -1458,7 +1458,7 @@
 
     app.addEventListener('input', e => {
       if (e.target.id === 'draft-input') { state.draft = e.target.value; }
-      if (e.target.id === 'join-room-input') state.roomCode = e.target.value.toUpperCase();
+      if (e.target.id === 'join-room-input') state.roomCode = e.target.value.trim().toUpperCase();
       if (e.target.id === 'admin-password') state.adminPassword = e.target.value;
       if (e.target.id === 'admin-new-password') {
         state.adminNewPassword = e.target.value;
@@ -1717,6 +1717,14 @@
     const code = state.roomCode.trim().toUpperCase();
     if (!code) {
       banner('error', '请输入房间号');
+      return;
+    }
+    // 先检查房间是否存在，避免先播放动画再报错
+    try {
+      await api.getRoom(code);
+    } catch (e) {
+      if (/不存在/.test(e.message) || /not found/i.test(e.message)) removeRecentRoom(code);
+      banner('error', '房间不存在或已关闭');
       return;
     }
     state.workspaceTransition = 'entering-room';

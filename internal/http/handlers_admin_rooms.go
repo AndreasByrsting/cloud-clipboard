@@ -38,7 +38,7 @@ func (h *AdminRoomHandler) Manage(w http.ResponseWriter, r *http.Request) {
 			now := time.Now().In(config.TimeLocation)
 			nowUnix := now.Unix()
 			stats, _ := h.rooms.GetRoomStats(nowUnix)
-			totalMsgs, totalFiles, _ := h.rooms.GetMessageStats()
+			totalMsgs, totalFiles, _ := h.rooms.GetMessageStats(nowUnix)
 
 			// 从统计表读取图表数据
 			var roomChart, msgChart []map[string]any

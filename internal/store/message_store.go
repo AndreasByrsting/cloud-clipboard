@@ -308,15 +308,15 @@ type HourlyCount struct {
 	Count int    `json:"count"`
 }
 
-func (s *MessageStore) CountAll() (int, error) {
+func (s *MessageStore) CountAll(nowUnix int64) (int, error) {
 	var count int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&count)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE expires_at IS NULL OR expires_at > ?`, nowUnix).Scan(&count)
 	return count, err
 }
 
-func (s *MessageStore) CountFiles() (int, error) {
+func (s *MessageStore) CountFiles(nowUnix int64) (int, error) {
 	var count int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE type = 'file'`).Scan(&count)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM messages WHERE type = 'file' AND (expires_at IS NULL OR expires_at > ?)`, nowUnix).Scan(&count)
 	return count, err
 }
 

@@ -139,7 +139,8 @@
 }
 
 /* Dark-mode icon visibility: ensure icons are light on dark backgrounds */
-:root[data-theme="dark"] .btn-icon {
+:root[data-theme="dark"] .btn-icon,
+:root[data-theme="dark"] .empty-state-svg {
   filter: brightness(0) invert(1);
 }
 
