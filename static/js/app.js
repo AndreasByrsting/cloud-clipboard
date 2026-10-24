@@ -17,6 +17,11 @@
   let sendInFlight = false;
   let uploadInFlight = false;
   let messageActionInFlight = new Set();
+  let passwordChangeNoticeShown = false;
+  let seenMessageIds = new Set();
+  let newMessageIds = new Set();
+  let composerSignature = '';
+  let lastComposerRoom = '';
   
   const RECENT_ROOMS_STORAGE_KEY = 'cloudClipboardRecentRooms';
   const MAX_RECENT_ROOMS = 5;
@@ -191,6 +196,10 @@
     state.mobileRoomCardVisible = false;
     state.workspaceTransition = '';
     state.showScrollTop = false;
+    seenMessageIds = new Set();
+    newMessageIds = new Set();
+    composerSignature = '';
+    lastComposerRoom = '';
   }
 
   function openAdminView() {
@@ -565,6 +574,7 @@
                 <aside class="sidebar ${!state.currentRoom ? 'is-disconnected' : ''} ${state.workspaceTransition ? `is-${state.workspaceTransition}` : ''}" id="sidebar"></aside>
                 <section class="main-panel ${!state.currentRoom ? 'is-disconnected' : ''} ${state.workspaceTransition ? `is-${state.workspaceTransition}` : ''}" id="main-panel">
                   <div id="message-area"></div>
+                  <div id="composer-host"></div>
                 </section>
               </div>
             </div>
@@ -583,6 +593,10 @@
   function updateViewState() {
     const container = document.getElementById('view-container');
     if (container) container.classList.toggle('flipped', state.activeView !== 'workspace');
+    if (app) {
+      app.classList.toggle('has-room', !!state.currentRoom);
+      app.classList.toggle('is-admin', state.activeView === 'admin');
+    }
     const workspace = document.getElementById('workspace-grid');
     const sidebar = document.getElementById('sidebar');
     const mainPanel = document.getElementById('main-panel');
@@ -612,33 +626,83 @@
       : renderWelcomeCard();
     if (state.currentRoom && showRoomCard) updateLifecycle();
     if (showQRCard) updateQR();
-    const draftInput = document.getElementById('draft-input');
-    if (draftInput) {
-      draftInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
-      draftInput.addEventListener('input', () => {
-        const counter = document.getElementById('compose-counter');
-        if (counter) {
-          counter.textContent = `${[...draftInput.value].length} / ${state.maxMessageTextLength}`;
-        }
-      });
-      // 初始同步已有草稿的字符数
-      const counter = document.getElementById('compose-counter');
-      if (counter) {
-        counter.textContent = `${[...draftInput.value].length} / ${state.maxMessageTextLength}`;
-      }
-      if (!isMobileLayout()) {
+    updateComposer();
+  }
+
+  function updateComposer(force) {
+    const host = document.getElementById('composer-host');
+    if (!host) return;
+    if (!state.currentRoom) {
+      host.innerHTML = '';
+      composerSignature = '';
+      lastComposerRoom = '';
+      return;
+    }
+
+    const fileQueue = state.filesToUpload || [];
+    const signature = [state.currentRoom.roomCode, fileQueue.length, uploadInFlight ? '1' : '0'].join('|');
+    if (!force && signature === composerSignature && host.firstElementChild) {
+      updateComposeMeta();
+      return;
+    }
+
+    const active = document.activeElement;
+    const hadFocus = !!active && active.id === 'draft-input';
+    const selectionStart = hadFocus ? active.selectionStart : null;
+    const selectionEnd = hadFocus ? active.selectionEnd : null;
+    const previousRoom = lastComposerRoom;
+
+    composerSignature = signature;
+    lastComposerRoom = state.currentRoom.roomCode;
+    host.innerHTML = renderComposer();
+    bindComposer(host);
+    updateComposeMeta();
+
+    const input = host.querySelector('#draft-input');
+    if (input) {
+      if (hadFocus || (!isMobileLayout() && previousRoom !== state.currentRoom.roomCode)) {
         setTimeout(() => {
-          draftInput.focus();
-          draftInput.setSelectionRange(draftInput.value.length, draftInput.value.length);
+          input.focus({ preventScroll: true });
+          if (selectionStart !== null && selectionEnd !== null) {
+            input.setSelectionRange(selectionStart, selectionEnd);
+          } else {
+            const length = input.value.length;
+            input.setSelectionRange(length, length);
+          }
         }, 0);
       }
     }
   }
+
+  function bindComposer(root) {
+    const input = root.querySelector('#draft-input');
+    if (!input) return;
+    input.addEventListener('keydown', e => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      if (isMobileLayout()) return; // 移动端 Enter 换行，使用发送按钮
+      e.preventDefault();
+      sendMessage();
+    });
+    input.addEventListener('input', () => {
+      state.draft = input.value;
+      updateComposeMeta();
+    });
+  }
+
+  function updateComposeMeta() {
+    const counter = document.getElementById('compose-counter');
+    if (counter) {
+      counter.textContent = `${[...(state.draft || '')].length} / ${state.maxMessageTextLength}`;
+    }
+    const bar = document.querySelector('.upload-progress-bar');
+    if (bar) bar.style.width = `${state.uploadProgressPct}%`;
+    const meta = document.querySelector('.upload-progress-meta');
+    if (meta) {
+      meta.textContent = `${state.uploadProgressPct}% · ${formatSize(state.uploadTransferredBytes)} · ${formatSpeed(state.uploadSpeedBps)}`;
+    }
+  }
+
 
   function updateMessages() {
     const el = document.getElementById('message-area');
@@ -647,6 +711,10 @@
       el.innerHTML = renderEmptyState();
       return;
     }
+
+    const nextIds = new Set(state.messages.map(message => Number(message.id)));
+    newMessageIds = new Set([...nextIds].filter(id => !seenMessageIds.has(id)));
+    seenMessageIds = nextIds;
 
     const content = `
       <div class="message-stream" id="message-stream">
@@ -696,18 +764,23 @@
   }
 
   function updateLifecycle() {
-    const el = document.getElementById('lifecycle-display');
-    if (!el || !state.currentRoom) return;
+    if (!state.currentRoom) return;
     const room = state.currentRoom;
     if (room.isPermanent) {
-      const parent = el.closest('.room-lifecycle');
-      if (parent) parent.innerHTML = '<div class="lifecycle-row"><span class="lifecycle-value permanent">永不过期</span></div>';
+      const permanent = document.querySelector('.room-meta-row .lifecycle-text.permanent')
+        || document.getElementById('lifecycle-display');
+      if (permanent) {
+        permanent.textContent = '长期房间 · 永不过期';
+        permanent.className = 'lifecycle-text permanent';
+      }
       return;
     }
+    const el = document.getElementById('lifecycle-display');
+    if (!el) return;
     const remaining = S.formatRemaining(room.deleteAfter);
     if (remaining) {
       el.textContent = remaining.text;
-      el.className = 'lifecycle-value ' + remaining.cls + (remaining.sec < 3600 ? ' countdown-warning' : '');
+      el.className = 'lifecycle-text ' + remaining.cls + (remaining.sec < 3600 ? ' countdown-warning' : '');
     }
   }
 
@@ -922,6 +995,11 @@
           <div class="welcome-brand-mark">${renderIcon('friends_link_send_share_icon_123622', '云剪贴板', 'welcome-brand-icon')}</div>
           <h1 class="welcome-title">云剪贴板</h1>
           <p class="welcome-tagline">跨设备即时同步，安全便捷</p>
+          <div class="welcome-features">
+            <span class="welcome-chip">跨设备即时同步</span>
+            <span class="welcome-chip">房间码即分享</span>
+            <span class="welcome-chip">到期自动清理</span>
+          </div>
         </div>
         <div class="welcome-actions">
           <button class="btn btn-primary btn-lg btn-block welcome-create-btn" data-action="create-room">
@@ -949,7 +1027,6 @@
     const extendHours = Math.round((state.publicSettings?.roomExtendSec || 24 * 3600) / 3600);
     const canExt = room.isPermanent ? false : S.canExtend(remaining ? remaining.sec : null, extendThresholdSec);
     const displayName = getRoomDisplayName(room);
-    const fileQueue = state.filesToUpload || [];
 
     return `
       <div class="card room-info-card">
@@ -987,44 +1064,48 @@
           <div class="room-actions-spacer"></div>
           <button class="btn btn-outline-danger btn-sm" data-action="leave-room">退出房间</button>
         </div>
+      </div>`;
+  }
 
-        <!-- 消息编辑区 -->
-        <div class="message-compose" style="margin-top:var(--space-4)">
-          <div class="compose-area">
-            ${fileQueue.length > 0 ? `
-              <div class="compose-file-preview">
-                <div class="compose-file-header">
-                  <span class="compose-file-count">待发送 ${fileQueue.length} 个文件</span>
-                  <button class="btn btn-ghost btn-xs" data-action="clear-upload-files">清空</button>
-                </div>
-                <div class="compose-file-list">
-                  ${fileQueue.map((file, i) => `
-                    <div class="compose-file-item">
-                      ${isImageFile(file) ? `<img src="${URL.createObjectURL(file)}" alt="${esc(file.name)}" class="compose-file-thumb" />` : ''}
-                      <span class="compose-file-item-name">${esc(file.name)}</span>
-                      <span class="compose-file-item-size">${formatSize(file.size)}</span>
-                      <button class="btn btn-ghost btn-xs" data-action="remove-upload-file" data-file-index="${i}">移除</button>
-                    </div>
-                  `).join('')}
-                </div>
-                ${uploadInFlight ? `<div class="upload-progress"><div class="upload-progress-bar" style="width:${state.uploadProgressPct}%"></div></div><div class="upload-progress-meta">${state.uploadProgressPct}% · ${formatSize(state.uploadTransferredBytes)} · ${formatSpeed(state.uploadSpeedBps)}</div>` : ''}
+  function renderComposer() {
+    if (!state.currentRoom) return '';
+    const fileQueue = state.filesToUpload || [];
+    return `
+      <div class="message-compose composer-dock">
+        <div class="compose-area">
+          ${fileQueue.length > 0 ? `
+            <div class="compose-file-preview">
+              <div class="compose-file-header">
+                <span class="compose-file-count">待发送 ${fileQueue.length} 个文件</span>
+                <button class="btn btn-ghost btn-xs" data-action="clear-upload-files">清空</button>
               </div>
-            ` : `
-              <textarea id="draft-input" rows="3" placeholder="输入文本消息... (Enter 发送，Shift+Enter 换行)">${esc(state.draft)}</textarea>
-            `}
-            <div class="compose-toolbar">
-              <button class="btn btn-secondary btn-sm" id="upload-trigger-btn" data-action="trigger-upload" title="选择文件">
-                ${renderIcon('plus', '上传', 'btn-icon')} 选择文件
-              </button>
-              <input id="file-upload-input" type="file" multiple style="display:none" />
-              ${fileQueue.length > 0 ? `
-                <button class="btn btn-primary btn-sm" data-action="upload-file">上传 ${fileQueue.length} 个文件</button>
-                <span class="compose-counter">${formatSizeForLimit(state.uploadLimitBytes)}</span>
-              ` : `
-                <button class="btn btn-primary btn-sm" data-action="send-message">${renderIcon('plus', '发送', 'btn-icon btn-inline-icon-inverse')} 发送消息</button>
-                <span class="compose-counter" id="compose-counter">0 / ${state.maxMessageTextLength}</span>
-              `}
+              <div class="compose-file-list">
+                ${fileQueue.map((file, i) => `
+                  <div class="compose-file-item">
+                    ${isImageFile(file) ? `<img src="${URL.createObjectURL(file)}" alt="${esc(file.name)}" class="compose-file-thumb" />` : ''}
+                    <span class="compose-file-item-name">${esc(file.name)}</span>
+                    <span class="compose-file-item-size">${formatSize(file.size)}</span>
+                    <button class="btn btn-ghost btn-xs" data-action="remove-upload-file" data-file-index="${i}">移除</button>
+                  </div>
+                `).join('')}
+              </div>
+              ${uploadInFlight ? `<div class="upload-progress"><div class="upload-progress-bar" style="width:${state.uploadProgressPct}%"></div></div><div class="upload-progress-meta">${state.uploadProgressPct}% · ${formatSize(state.uploadTransferredBytes)} · ${formatSpeed(state.uploadSpeedBps)}</div>` : ''}
             </div>
+          ` : `
+            <textarea id="draft-input" rows="3" placeholder="${isMobileLayout() ? '输入文本消息...' : '输入文本消息... (Enter 发送，Shift+Enter 换行)'}">${esc(state.draft)}</textarea>
+          `}
+          <div class="compose-toolbar">
+            <button class="btn btn-secondary btn-sm" id="upload-trigger-btn" data-action="trigger-upload" title="选择文件">
+              ${renderIcon('plus', '上传', 'btn-icon')} 选择文件
+            </button>
+            <input id="file-upload-input" type="file" multiple style="display:none" />
+            ${fileQueue.length > 0 ? `
+              <button class="btn btn-primary btn-sm" data-action="upload-file">上传 ${fileQueue.length} 个文件</button>
+              <span class="compose-counter">${formatSizeForLimit(state.uploadLimitBytes)}</span>
+            ` : `
+              <button class="btn btn-primary btn-sm" data-action="send-message">${renderIcon('plus', '发送', 'btn-icon btn-inline-icon-inverse')} 发送消息</button>
+              <span class="compose-counter" id="compose-counter">${[...(state.draft || '')].length} / ${state.maxMessageTextLength}</span>
+            `}
           </div>
         </div>
       </div>`;
@@ -1051,7 +1132,8 @@
   function renderAdminLogin() {
     return `
       <div class="admin-login-stack">
-        <input id="admin-password" type="password" placeholder="管理员密码" />
+        <input id="admin-password" type="password" placeholder="管理员密码" autocomplete="current-password" />
+        ${state.adminPasswordFeedback ? `<div class="password-feedback password-feedback-${esc(state.adminPasswordFeedbackType || 'error')}">${esc(state.adminPasswordFeedback)}</div>` : ''}
         <button class="btn btn-primary" data-action="admin-login">登录管理后台</button>
         <div class="github-star-block">
           <a href="https://github.com/AndreasByrsting/cloud-clipboard" target="_blank" rel="noopener" class="github-star-link">
@@ -1062,7 +1144,43 @@
       </div>`;
   }
 
+  function renderAdminPasswordChange() {
+    return `
+      <div class="admin-force-password">
+        <div class="admin-security-note">
+          <div class="admin-security-icon">${renderIcon('friends_link_send_share_icon_123622', '安全提示', 'admin-security-svg')}</div>
+          <div>
+            <div class="card-title">首次登录需修改密码</div>
+            <div class="card-subtitle">当前仍在使用初始管理员密码。修改后将退出所有会话，需要使用新密码重新登录。</div>
+          </div>
+        </div>
+        <div class="password-panel">
+          <div class="admin-settings-grid">
+            <div class="settings-field">
+              <label>当前密码</label>
+              <input id="admin-current-password" type="password" value="${esc(state.adminCurrentPassword)}" placeholder="请输入当前密码" autocomplete="current-password" />
+            </div>
+            <div class="settings-field">
+              <label>新密码</label>
+              <input id="admin-new-password" type="password" value="${esc(state.adminNewPassword)}" placeholder="至少 8 位" autocomplete="new-password" />
+            </div>
+            <div class="settings-field">
+              <label>再次输入新密码</label>
+              <input id="admin-confirm-password" type="password" value="${esc(state.adminConfirmPassword)}" placeholder="再次输入新密码" autocomplete="new-password" />
+            </div>
+          </div>
+          ${state.adminPasswordFeedback ? `<div class="password-feedback password-feedback-${esc(state.adminPasswordFeedbackType || 'error')}">${esc(state.adminPasswordFeedback)}</div>` : ''}
+          <button class="btn btn-primary btn-block" data-action="admin-change-password">更新密码并重新登录</button>
+        </div>
+        <div class="admin-forced-footer">
+          <span class="badge badge-accent">已登录</span>
+          <button class="btn btn-ghost btn-sm" data-action="admin-logout">退出</button>
+        </div>
+      </div>`;
+  }
+
   function renderAdminAuthed() {
+    if (state.mustChangePassword) return renderAdminPasswordChange();
     const s = state.adminSettings || {};
     const keyLabels = {
       roomCodeLength: '房间号长度',
@@ -1185,12 +1303,16 @@
             <div class="card-title">修改管理员密码</div>
             <div class="admin-settings-grid">
               <div class="settings-field">
+                <label>当前密码</label>
+                <input id="admin-current-password" type="password" value="${esc(state.adminCurrentPassword)}" placeholder="请输入当前密码" autocomplete="current-password" />
+              </div>
+              <div class="settings-field">
                 <label>新密码</label>
-                <input id="admin-new-password" type="password" value="${esc(state.adminNewPassword)}" placeholder="至少 8 位" />
+                <input id="admin-new-password" type="password" value="${esc(state.adminNewPassword)}" placeholder="至少 8 位" autocomplete="new-password" />
               </div>
               <div class="settings-field">
                 <label>再次输入新密码</label>
-                <input id="admin-confirm-password" type="password" value="${esc(state.adminConfirmPassword)}" placeholder="再次输入新密码" />
+                <input id="admin-confirm-password" type="password" value="${esc(state.adminConfirmPassword)}" placeholder="再次输入新密码" autocomplete="new-password" />
               </div>
             </div>
             ${state.adminPasswordFeedback ? `<div class="password-feedback password-feedback-${esc(state.adminPasswordFeedbackType || 'error')}">${esc(state.adminPasswordFeedback)}</div>` : ''}
@@ -1359,8 +1481,9 @@
     const expanded = isMessageExpanded(msg.id);
     const textTooLong = !isFile && ((msg.textContent || '').split('\n').length > 3 || (msg.textContent || '').length > 200);
     const expandable = (!isFile && textTooLong) || (isImage && !fileExpired);
+    const isNew = newMessageIds.has(Number(msg.id));
     return `
-      <div class="message-card animate-in ${msg.isPinned ? 'pinned' : ''} ${expanded ? 'expanded' : ''} ${fileExpired ? 'file-expired' : ''}" id="msg-${msg.id}">
+      <div class="message-card ${isNew ? 'is-new' : ''} ${msg.isPinned ? 'pinned' : ''} ${expanded ? 'expanded' : ''} ${fileExpired ? 'file-expired' : ''}" id="msg-${msg.id}">
         <div class="message-card-header">
           <div class="message-meta">
             <span class="message-id">#${msg.id}</span>
@@ -1372,7 +1495,7 @@
         </div>
         <div class="message-body${expandable ? ' message-body-clickable' : ''}" data-action="toggle-message-expand" data-msg-id="${msg.id}">
           ${isImage && !fileExpired
-        ? `<div class="image-message ${expanded ? 'expanded' : 'collapsed'}"><img src="${api.downloadFile(msg.id)}" alt="${esc(msg.fileName || '图片')}" class="image-message-preview" loading="lazy" /></div>`
+        ? `<div class="image-message ${expanded ? 'expanded' : 'collapsed'}"><img src="${api.downloadFile(state.currentRoom.roomCode, msg.id, true)}" alt="${esc(msg.fileName || '图片')}" class="image-message-preview" loading="lazy" /></div>`
         : isImage && fileExpired
           ? `<div class="message-file file-expired-card"><span class="message-file-name">${esc(msg.fileName || '未命名文件')}</span><span class="message-file-size">${formatSize(msg.fileSize)}</span><span class="file-expired-hint">文件已过期，无法预览</span></div>`
         : isFile
@@ -1382,7 +1505,7 @@
         </div>
         <div class="message-actions">
           ${!isFile ? `<button class="msg-action-btn" data-action="copy-message" data-msg-id="${msg.id}" title="复制">${renderIcon('copy', '复制', 'msg-action-icon')}</button>` : ''}
-          ${isFile && !fileExpired ? `<a href="${api.downloadFile(msg.id)}" class="msg-action-btn" download title="下载">${renderIcon('download', '下载', 'msg-action-icon')}</a>` : ''}
+          ${isFile && !fileExpired ? `<a href="${api.downloadFile(state.currentRoom.roomCode, msg.id)}" class="msg-action-btn" download title="下载">${renderIcon('download', '下载', 'msg-action-icon')}</a>` : ''}
           <button class="msg-action-btn" data-action="pin-message" data-msg-id="${msg.id}" title="${msg.isPinned ? '取消置顶' : '置顶'}">${renderIcon('pin', '置顶', 'msg-action-icon')}</button>
           <button class="msg-action-btn msg-action-danger" data-action="delete-message" data-msg-id="${msg.id}" title="删除">${renderIcon('trash', '删除', 'msg-action-icon')}</button>
         </div>
@@ -1460,6 +1583,7 @@
       if (e.target.id === 'draft-input') { state.draft = e.target.value; }
       if (e.target.id === 'join-room-input') state.roomCode = e.target.value.replace(/\s/g, '').toUpperCase();
       if (e.target.id === 'admin-password') state.adminPassword = e.target.value;
+      if (e.target.id === 'admin-current-password') state.adminCurrentPassword = e.target.value;
       if (e.target.id === 'admin-new-password') {
         state.adminNewPassword = e.target.value;
         if (state.adminConfirmPassword && state.adminNewPassword !== state.adminConfirmPassword) {
@@ -1493,6 +1617,7 @@
     });
 
     document.addEventListener('keydown', e => {
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.target.id === 'join-room-input' && e.key === 'Enter') {
         e.preventDefault(); joinRoom();
       }
@@ -1502,19 +1627,8 @@
       if (e.target.id === 'admin-password' && e.key === 'Enter') {
         e.preventDefault(); adminLogin();
       }
-      if ((e.target.id === 'admin-new-password' || e.target.id === 'admin-confirm-password') && e.key === 'Enter') {
+      if ((e.target.id === 'admin-current-password' || e.target.id === 'admin-new-password' || e.target.id === 'admin-confirm-password') && e.key === 'Enter') {
         e.preventDefault(); changeAdminPassword();
-      }
-      // 全局 Enter：有待发送文件时触发上传，否则聚焦到输入框
-      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-        if (state.currentRoom) {
-          if (state.filesToUpload && state.filesToUpload.length > 0) {
-            if (e.target.closest('.compose-file-preview') || e.target.closest('.message-compose') || e.target === document.body) {
-              e.preventDefault();
-              uploadFile();
-            }
-          }
-        }
       }
       if (e.key === 'Escape' && state.mobileFabExpanded) {
         closeMobileFabMenu();
@@ -1592,8 +1706,10 @@
 
     const handleScroll = () => {
       closeMobileFabMenu();
-      const threshold = window.innerHeight * 3;
-      const scrolled = window.scrollY > threshold;
+      const stream = document.getElementById('message-stream');
+      const scrolled = stream
+        ? stream.scrollTop > 220 || window.scrollY > 220
+        : window.scrollY > 220;
       if (state.showScrollTop !== scrolled) {
         state.showScrollTop = scrolled;
         updateFloatingActions();
@@ -1652,7 +1768,7 @@
       const el = document.getElementById('lifecycle-display');
       if (el && remaining) {
         el.textContent = remaining.text;
-        el.className = 'lifecycle-value ' + remaining.cls + (remaining.sec < 3600 ? ' countdown-warning' : '');
+        el.className = 'lifecycle-text ' + remaining.cls + (remaining.sec < 3600 ? ' countdown-warning' : '');
       }
       if (remaining && remaining.sec <= 0) {
         clearInterval(lifecycleTimer);
@@ -1665,17 +1781,63 @@
     }, 10000);
   }
 
+  async function cleanupLegacyServiceWorker() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(registration => registration.unregister()));
+      }
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(key => key.indexOf('cloud-clipboard') === 0).map(key => caches.delete(key)));
+      }
+    } catch (_) {
+      // ignore cleanup failures
+    }
+  }
+
+  async function maybeReloadForVersion(status) {
+    if (!status) return false;
+    const clientBuild = typeof window.__APP_BUILD__ === 'string' ? window.__APP_BUILD__ : '';
+    const serverVersion = typeof status.serverVersion === 'string' ? status.serverVersion : '';
+    const rawApiVersion = window.__API_VERSION__;
+    const clientApiVersion = rawApiVersion === undefined || rawApiVersion === null || rawApiVersion === ''
+      ? NaN
+      : Number(rawApiVersion);
+    const buildMismatch = !!clientBuild
+      && clientBuild.indexOf('{{') === -1
+      && !!serverVersion
+      && serverVersion !== clientBuild;
+    const apiMismatch = Number.isFinite(clientApiVersion)
+      && status.apiVersion !== undefined
+      && status.apiVersion !== null
+      && Number(status.apiVersion) !== clientApiVersion;
+    if (!buildMismatch && !apiMismatch) return false;
+
+    let lastReload = 0;
+    try { lastReload = Number(sessionStorage.getItem('cc-version-reloaded') || 0); } catch (_) {}
+    if (lastReload && Date.now() - lastReload < 60000) return false;
+    try { sessionStorage.setItem('cc-version-reloaded', String(Date.now())); } catch (_) {}
+
+    await cleanupLegacyServiceWorker();
+    window.location.reload();
+    return true;
+  }
+
   async function initialize() {
     state.loading = true;
     applyTheme(loadThemePreference());
     applyAccent(loadAccentPreference());
     render();
     try {
-      const [session, publicSettings] = await Promise.all([
+      const [session, publicSettings, bootstrap] = await Promise.all([
         api.getSession(),
         api.getPublicSettings().catch(() => null),
+        api.bootstrapStatus().catch(() => null),
       ]);
+      if (await maybeReloadForVersion(bootstrap)) return;
       state.authenticated = !!session.authenticated;
+      state.mustChangePassword = !!session.defaultPasswordActive;
       if (publicSettings) {
         state.publicSettings = publicSettings;
         if (publicSettings.maxUploadBytes) state.uploadLimitBytes = publicSettings.maxUploadBytes;
@@ -1760,6 +1922,11 @@
       state.messages = [];
       state.lastEventId = 0;
       state.filesToUpload = [];
+      state.mobileRoomCardVisible = true;
+      seenMessageIds = new Set();
+      newMessageIds = new Set();
+      composerSignature = '';
+      lastComposerRoom = '';
       rememberRecentRoom(room);
       if (opts.syncHash !== false) setHash(room.roomCode);
       render();
@@ -1814,6 +1981,11 @@
       state.messages = sortMessages([data.message, ...state.messages.filter(m => m.id !== data.message.id)]);
       state.lastEventId = Math.max(state.lastEventId, data.event?.id || 0);
       state.draft = '';
+      const input = document.getElementById('draft-input');
+      if (input) {
+        input.value = '';
+        input.focus({ preventScroll: true });
+      }
       updateMessages();
       updateSidebar();
     } catch (e) {
@@ -1915,10 +2087,11 @@
   }
 
   async function togglePin(msgId) {
+    if (!state.currentRoom) return;
     if (messageActionInFlight.has(`pin:${msgId}`)) return;
     messageActionInFlight.add(`pin:${msgId}`);
     try {
-      const result = await api.togglePin(msgId);
+      const result = await api.togglePin(state.currentRoom.roomCode, msgId);
       const msg = result.message;
       state.messages = sortMessages(state.messages.map(m => m.id === msgId ? msg : m));
       state.lastEventId = Math.max(state.lastEventId, result?.event?.id || 0);
@@ -1931,10 +2104,11 @@
   }
 
   async function deleteMessage(msgId) {
+    if (!state.currentRoom) return;
     if (messageActionInFlight.has(`delete:${msgId}`)) return;
     messageActionInFlight.add(`delete:${msgId}`);
     try {
-      const result = await api.deleteMessage(msgId);
+      const result = await api.deleteMessage(state.currentRoom.roomCode, msgId);
       state.messages = state.messages.filter(m => m.id !== msgId);
       state.lastEventId = Math.max(state.lastEventId, result?.event?.id || 0);
       updateMessages();
@@ -1954,10 +2128,22 @@
     try {
       const data = await api.login(pw.trim());
       state.authenticated = !!data.authenticated;
+      state.mustChangePassword = !!data.defaultPasswordActive;
       if (state.authenticated) {
-        state.adminTab = 'rooms';
-        await Promise.all([loadAdminRooms(), loadAdminSettings()]);
-        banner('success', '管理员登录成功');
+        passwordChangeNoticeShown = false;
+        state.adminPasswordFeedback = '';
+        state.adminPasswordFeedbackType = '';
+        if (data.defaultPasswordActive) {
+          state.adminTab = 'settings';
+          state.adminPasswordFeedback = '默认密码未修改，请先修改管理员密码';
+          state.adminPasswordFeedbackType = 'error';
+          passwordChangeNoticeShown = true;
+          banner('notice', '默认密码未修改，请先修改管理员密码');
+        } else {
+          state.adminTab = 'rooms';
+          await Promise.all([loadAdminRooms(), loadAdminSettings()]);
+          banner('success', '管理员登录成功');
+        }
       }
       updateAdminView();
     } catch (e) {
@@ -1968,15 +2154,32 @@
   async function adminLogout() {
     try { await api.logout(); } catch (_) { }
     state.authenticated = false;
+    state.mustChangePassword = false;
+    passwordChangeNoticeShown = false;
     state.adminPasswordFeedback = '';
     state.adminPasswordFeedbackType = '';
     state.adminRooms = [];
     state.adminTab = 'rooms';
     state.adminSettings = null;
+    state.adminCurrentPassword = '';
     state.adminNewPassword = '';
     state.adminConfirmPassword = '';
     updateAdminView();
     banner('notice', '已退出管理后台');
+  }
+
+  function handlePasswordChangeRequired(err) {
+    if (!err || err.code !== 'password_change_required') return false;
+    state.mustChangePassword = true;
+    state.adminTab = 'settings';
+    state.adminPasswordFeedback = '默认密码未修改，请先修改管理员密码';
+    state.adminPasswordFeedbackType = 'error';
+    if (!passwordChangeNoticeShown) {
+      passwordChangeNoticeShown = true;
+      banner('notice', '默认密码未修改，请先修改管理员密码');
+    }
+    updateAdminView();
+    return true;
   }
 
   async function loadAdminRooms() {
@@ -1989,8 +2192,8 @@
       state.adminPageSize = data.pageSize || 10;
       state.adminStats = data.stats || null;
       updateAdminView();
-    } catch (_) {
-      // silent
+    } catch (e) {
+      handlePasswordChangeRequired(e);
     }
   }
 
@@ -2089,8 +2292,8 @@
       if (data.maxUploadBytes) state.uploadLimitBytes = data.maxUploadBytes;
       if (data.maxMessageTextLength) state.maxMessageTextLength = data.maxMessageTextLength;
       updateAdminView();
-    } catch (_) {
-      // silent
+    } catch (e) {
+      handlePasswordChangeRequired(e);
     }
   }
 
@@ -2168,8 +2371,16 @@
   }
 
   async function changeAdminPassword() {
+    const current = state.adminCurrentPassword.trim();
     const next = state.adminNewPassword.trim();
     const confirm = state.adminConfirmPassword.trim();
+    if (!current) {
+      state.adminPasswordFeedback = '请输入当前密码';
+      state.adminPasswordFeedbackType = 'error';
+      updateAdminView();
+      banner('error', '请输入当前密码');
+      return;
+    }
     if (!next || !confirm) {
       state.adminPasswordFeedback = '请输入两次新密码';
       state.adminPasswordFeedbackType = 'error';
@@ -2184,14 +2395,28 @@
       banner('error', '两次输入的新密码不一致');
       return;
     }
+    if (next.length < 8) {
+      state.adminPasswordFeedback = '新密码至少 8 位';
+      state.adminPasswordFeedbackType = 'error';
+      updateAdminView();
+      banner('error', '新密码至少 8 位');
+      return;
+    }
     try {
-      await api.adminChangePassword(next, confirm);
+      await api.adminChangePassword(current, next, confirm);
+      state.authenticated = false;
+      state.mustChangePassword = false;
+      passwordChangeNoticeShown = false;
+      state.adminCurrentPassword = '';
       state.adminNewPassword = '';
       state.adminConfirmPassword = '';
-      state.adminPasswordFeedback = '管理员密码已更新';
+      state.adminRooms = [];
+      state.adminSettings = null;
+      state.adminTab = 'rooms';
+      state.adminPasswordFeedback = '管理员密码已更新，请重新登录';
       state.adminPasswordFeedbackType = 'success';
       updateAdminView();
-      banner('success', '管理员密码已更新');
+      banner('success', '管理员密码已更新，请重新登录');
     } catch (e) {
       state.adminPasswordFeedback = e.message;
       state.adminPasswordFeedbackType = 'error';

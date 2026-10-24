@@ -66,8 +66,8 @@ func main() {
 	cred, found, _ := adminService.Status()
 	if found && cred.DefaultPasswordActive {
 		logger.Warn("============================================")
-		logger.Warn(" 初始密码未修改！默认管理员密码: %s", config.DefaultAdminPassword)
-		logger.Warn(" 请尽快登录管理后台修改密码！")
+		logger.Warn(" 初始管理员密码尚未修改")
+		logger.Warn(" 请尽快登录管理后台修改密码，改密前管理接口会被拒绝")
 		logger.Warn("============================================")
 	}
 
@@ -79,7 +79,7 @@ func main() {
 	hub := realtime.NewHub()
 	roomService := service.NewRoomService(settingsStore, roomStore, messageStore, uploadSessionStore, fileService, hub)
 	settingsService := service.NewSettingsService(settingsStore)
-	maintenanceService := service.NewMaintenanceService(settingsStore, roomStore, messageStore, fileService, roomService, statisticsStore)
+	maintenanceService := service.NewMaintenanceService(settingsStore, roomStore, messageStore, fileService, roomService, statisticsStore, uploadSessionStore)
 
 	staticFiles, err := fs.Sub(embeddedFiles, "static")
 	if err != nil {
@@ -105,8 +105,11 @@ func main() {
 	application.Handler = handler
 
 	server := &http.Server{
-		Addr:    cfg.ListenAddr,
-		Handler: handler,
+		Addr:              cfg.ListenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -8,33 +8,45 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="云剪贴板" />
   <title>云剪贴板</title>
+  <script>
+    window.__APP_BUILD__ = '{{BUILD}}';
+    window.__API_VERSION__ = '{{API_VERSION}}';
+    window.addEventListener('load', function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) { registration.unregister(); });
+          }).catch(function () {});
+        }
+        if (window.caches) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
+              if (key.indexOf('cloud-clipboard') === 0) caches.delete(key);
+            });
+          }).catch(function () {});
+        }
+      } catch (_) {}
+    });
+  </script>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon/friends_link_send_share_icon_123622.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/icon/friends_link_send_share_icon_123622.svg" />
-  <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/components.css" />
-  <link rel="stylesheet" href="/css/animations.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v={{BUILD}}" />
+  <link rel="stylesheet" href="/css/base.css?v={{BUILD}}" />
+  <link rel="stylesheet" href="/css/layout.css?v={{BUILD}}" />
+  <link rel="stylesheet" href="/css/components.css?v={{BUILD}}" />
+  <link rel="stylesheet" href="/css/animations.css?v={{BUILD}}" />
+  <link rel="stylesheet" href="/css/theme.css?v={{BUILD}}" />
 </head>
 
 <body>
   <div id="app" class="app-shell"></div>
-  <script src="/js/chart.umd.min.js"></script>
-  <script src="/js/qrcode.min.js"></script>
-  <script src="/js/state.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/realtime.js"></script>
-  <script src="/js/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function () {
-          // ignore registration failure
-        });
-      });
-    }
-  </script>
+  <script src="/js/chart.umd.min.js?v={{BUILD}}"></script>
+  <script src="/js/qrcode.min.js?v={{BUILD}}"></script>
+  <script src="/js/state.js?v={{BUILD}}"></script>
+  <script src="/js/api.js?v={{BUILD}}"></script>
+  <script src="/js/realtime.js?v={{BUILD}}"></script>
+  <script src="/js/app.js?v={{BUILD}}"></script>
 </body>
 
 </html>

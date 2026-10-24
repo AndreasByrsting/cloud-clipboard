@@ -84,10 +84,23 @@ func (s *AdminService) Login(password string, now time.Time) (bool, store.AdminC
 	return true, cred, nil
 }
 
-func (s *AdminService) ChangePassword(newPassword string, now time.Time) error {
+func (s *AdminService) ChangePassword(currentPassword, newPassword string, now time.Time) error {
+	cred, err := s.store.Get()
+	if err != nil {
+		return err
+	}
+
+	matched, _, err := verifyPassword(cred.PasswordHash, currentPassword)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		return errors.New("current password is incorrect")
+	}
 	if len(strings.TrimSpace(newPassword)) < 8 {
 		return errors.New("new password must be at least 8 characters")
 	}
+
 	hash, err := hashPassword(newPassword)
 	if err != nil {
 		return err

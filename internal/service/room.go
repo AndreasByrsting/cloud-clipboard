@@ -196,13 +196,31 @@ func (s *RoomService) PostStoredFileMessage(roomCode string, originalName string
 	return message, realtimeEvent, nil
 }
 
-func (s *RoomService) GetFileMessage(messageID int64) (store.Message, error) {
-	message, err := s.messages.Get(messageID)
+func (s *RoomService) GetFileMessage(roomCode string, messageID int64) (store.Message, error) {
+	message, err := s.messageInRoom(roomCode, messageID)
 	if err != nil {
 		return store.Message{}, err
 	}
 	if message.Type != "file" {
-		return store.Message{}, fmt.Errorf("message is not a file")
+		return store.Message{}, store.ErrNotFound
+	}
+	return message, nil
+}
+
+// messageInRoom loads a message and verifies it belongs to the given room.
+// Cross-room lookups are reported as not found so callers cannot probe which
+// message IDs exist elsewhere.
+func (s *RoomService) messageInRoom(roomCode string, messageID int64) (store.Message, error) {
+	room, err := s.rooms.GetByCode(roomCode)
+	if err != nil {
+		return store.Message{}, store.ErrNotFound
+	}
+	message, err := s.messages.Get(messageID)
+	if err != nil {
+		return store.Message{}, store.ErrNotFound
+	}
+	if message.RoomID != room.ID {
+		return store.Message{}, store.ErrNotFound
 	}
 	return message, nil
 }
@@ -300,7 +318,10 @@ func (s *RoomService) PublicDeleteRoom(roomCode string) error {
 	return s.deleteRoom(roomCode, true)
 }
 
-func (s *RoomService) TogglePinMessage(messageID int64) (store.Message, realtime.Event, error) {
+func (s *RoomService) TogglePinMessage(roomCode string, messageID int64) (store.Message, realtime.Event, error) {
+	if _, err := s.messageInRoom(roomCode, messageID); err != nil {
+		return store.Message{}, realtime.Event{}, err
+	}
 	message, err := s.messages.TogglePin(messageID)
 	if err != nil {
 		return store.Message{}, realtime.Event{}, err
@@ -323,8 +344,8 @@ func (s *RoomService) TogglePinMessage(messageID int64) (store.Message, realtime
 	return message, realtimeEvent, nil
 }
 
-func (s *RoomService) DeleteMessage(messageID int64) (realtime.Event, error) {
-	message, err := s.messages.Get(messageID)
+func (s *RoomService) DeleteMessage(roomCode string, messageID int64) (realtime.Event, error) {
+	message, err := s.messageInRoom(roomCode, messageID)
 	if err != nil {
 		return realtime.Event{}, err
 	}

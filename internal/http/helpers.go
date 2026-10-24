@@ -9,43 +9,48 @@ import (
 
 	"cloud-clipboard/internal/config"
 	"cloud-clipboard/internal/service"
+	"cloud-clipboard/version"
 )
 
 type AdminHandler struct {
-	admin    *service.AdminService
-	sessions *SessionStore
+	admin        *service.AdminService
+	sessions     *SessionStore
+	loginLimiter *loginRateLimiter
 }
 
 func NewAdminHandler(admin *service.AdminService, sessions *SessionStore) *AdminHandler {
-	return &AdminHandler{admin: admin, sessions: sessions}
+	return &AdminHandler{
+		admin:        admin,
+		sessions:     sessions,
+		loginLimiter: newLoginRateLimiter(),
+	}
 }
 
 func (h *AdminHandler) BootstrapStatus(w http.ResponseWriter, r *http.Request) {
-	cred, exists, err := h.admin.Status()
+	_, exists, err := h.admin.Status()
 	if err != nil {
 		errorJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"adminExists":           exists,
-		"defaultPasswordActive": cred.DefaultPasswordActive,
+		"adminExists":   exists,
+		"serverVersion": version.Short(),
+		"apiVersion":    APIVersion,
 	})
 }
 
 func (h *AdminHandler) Session(w http.ResponseWriter, r *http.Request) {
 	session, ok := h.sessions.Get(r)
 	if !ok {
-		writeJSON(w, http.StatusOK, map[string]any{"authenticated": false})
-		return
-	}
-	cred, _, err := h.admin.Status()
-	if err != nil {
-		errorJSON(w, http.StatusInternalServerError, err.Error())
+		writeJSON(w, http.StatusOK, map[string]any{
+			"authenticated":         false,
+			"defaultPasswordActive": false,
+		})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated":         true,
-		"defaultPasswordActive": cred.DefaultPasswordActive,
+		"defaultPasswordActive": session.PasswordChangeRequired,
 		"createdAt":             session.CreatedAt.Unix(),
 		"lastSeenAt":            session.LastSeenAt.Unix(),
 	})
@@ -56,6 +61,13 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+
+	ip := loginClientIP(r)
+	if allowed, retryAfter := h.loginLimiter.Check(ip); !allowed {
+		writeRateLimited(w, retryAfter)
+		return
+	}
+
 	var req struct {
 		Password string `json:"password"`
 	}
@@ -69,15 +81,20 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
+		h.loginLimiter.Fail(ip)
+		// Slow down brute-force attempts without blocking other requests.
+		time.Sleep(loginFailureDelay)
 		errorJSON(w, http.StatusUnauthorized, "invalid password")
 		return
 	}
+	h.loginLimiter.Success(ip)
+
 	token, err := service.GenerateToken()
 	if err != nil {
 		errorJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.sessions.Create(token, w)
+	h.sessions.Create(token, cred.DefaultPasswordActive, w, r)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"authenticated":         true,
 		"defaultPasswordActive": cred.DefaultPasswordActive,
@@ -99,6 +116,7 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
+		CurrentPassword string `json:"currentPassword"`
 		NewPassword     string `json:"newPassword"`
 		ConfirmPassword string `json:"confirmPassword"`
 	}
@@ -106,7 +124,7 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if strings.TrimSpace(req.NewPassword) == "" || strings.TrimSpace(req.ConfirmPassword) == "" {
+	if strings.TrimSpace(req.CurrentPassword) == "" || strings.TrimSpace(req.NewPassword) == "" || strings.TrimSpace(req.ConfirmPassword) == "" {
 		errorJSON(w, http.StatusBadRequest, "password fields are required")
 		return
 	}
@@ -114,11 +132,12 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, http.StatusBadRequest, "password confirmation does not match")
 		return
 	}
-	if err := h.admin.ChangePassword(req.NewPassword, nowUTC()); err != nil {
+	if err := h.admin.ChangePassword(req.CurrentPassword, req.NewPassword, nowUTC()); err != nil {
 		errorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	h.sessions.DestroyAll()
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "relogin": true})
 }
 
 func roomCodeFromPath(path string) (string, error) {

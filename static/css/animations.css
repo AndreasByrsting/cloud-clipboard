@@ -5,46 +5,98 @@
 }
 
 .spinner {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: 2px solid var(--border-soft);
   border-top-color: var(--accent-hover);
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 
 @keyframes countdown-warn {
-
   0%,
   100% {
     color: var(--warning);
+    opacity: 1;
   }
 
   50% {
     color: var(--danger);
+    opacity: 0.72;
   }
 }
 
 .countdown-warning {
-  animation: countdown-warn 1s ease-in-out infinite;
+  animation: countdown-warn 2.2s ease-in-out infinite;
 }
 
 @keyframes blink {
-
   0%,
   100% {
     opacity: 1;
   }
 
   50% {
-    opacity: 0.3;
+    opacity: 0.35;
   }
 }
 
 .connection-dot.connecting {
   background: var(--accent-hover);
-  box-shadow: 0 0 8px var(--accent-glow);
-  animation: blink 0.8s ease-in-out infinite;
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: blink 1.1s ease-in-out infinite;
+}
+
+/* New message arrival — only applied to cards that were not on screen before. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.message-card.is-new {
+  animation: card-in 360ms var(--ease-spring) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gentle-pulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 30px -10px var(--accent-glow);
+  }
+
+  50% {
+    box-shadow: 0 14px 40px -8px var(--accent-glow), 0 0 0 6px var(--accent-soft);
+  }
 }
 
 @keyframes welcome-shrink {
@@ -59,12 +111,11 @@
   }
 }
 
-/* Admin flip — subtle 3D card flip */
-.flip-container {
-  /* no perspective here — container height varies with content,
-     causing cone effect. Use perspective() in transform instead. */
+.sidebar.is-entering-room .welcome-card-disconnected {
+  animation: welcome-shrink 0.65s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Admin flip — kept for the existing view toggle, but softened. */
 .flip-container.flipped .flip-inner {
   transform: perspective(4000px) rotateY(180deg);
 }
@@ -73,7 +124,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.55s var(--ease-standard);
   transform-style: preserve-3d;
 }
 
@@ -98,11 +149,7 @@
   width: 100%;
 }
 
-.sidebar.is-entering-room .welcome-card-disconnected {
-  animation: welcome-shrink 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ====== Accent color transition ====== */
+/* Accent color transition */
 .brand-mark,
 .btn-primary,
 .fab-button,
@@ -115,4 +162,19 @@
     border-color var(--duration-base) var(--ease-standard),
     box-shadow var(--duration-base) var(--ease-standard),
     color var(--duration-base) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .message-card.is-new {
+    animation: none;
+  }
 }

@@ -1003,7 +1003,7 @@
 .floating-actions {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1177,7 +1177,7 @@
 .settings-check-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--color-accent);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
@@ -1199,7 +1199,7 @@
   font-size: 0.7rem;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  background: var(--bg-card-hover);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -1618,8 +1618,8 @@
   white-space: nowrap;
 }
 
-.admin-room-remaining.warning { color: var(--color-warning); }
-.admin-room-remaining.danger { color: var(--color-danger); }
+.admin-room-remaining.warning { color: var(--warning); }
+.admin-room-remaining.danger { color: var(--danger); }
 
 .admin-room-meta-row {
   display: flex;
@@ -1661,7 +1661,7 @@
 .admin-room-check-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--color-accent);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 

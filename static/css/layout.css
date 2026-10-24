@@ -162,6 +162,10 @@
   flex-direction: column;
   gap: var(--space-3);
   padding-right: var(--space-1);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .empty-state {

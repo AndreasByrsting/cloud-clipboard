@@ -11,7 +11,7 @@ type Message struct {
 	Type        string `json:"type"`
 	TextContent string `json:"textContent"`
 	FileName    string `json:"fileName,omitempty"`
-	FilePath    string `json:"filePath,omitempty"`
+	FilePath    string `json:"-"`
 	FileSize    int64  `json:"fileSize,omitempty"`
 	MimeType    string `json:"mimeType,omitempty"`
 	IsPinned    bool   `json:"isPinned"`
@@ -35,7 +35,7 @@ type UploadSession struct {
 	MimeType     string `json:"mimeType"`
 	ChunkSize    int64  `json:"chunkSize"`
 	UploadedSize int64  `json:"uploadedSize"`
-	StoredPath   string `json:"storedPath"`
+	StoredPath   string `json:"-"`
 	CreatedAt    int64  `json:"createdAt"`
 	UpdatedAt    int64  `json:"updatedAt"`
 }
@@ -83,6 +83,26 @@ func (s *UploadSessionStore) ListByRoomCode(roomCode string) ([]UploadSession, e
 func (s *UploadSessionStore) UpdateProgress(id string, uploadedSize int64, updatedAt time.Time) error {
 	_, err := s.db.Exec(`UPDATE upload_sessions SET uploaded_size = ?, updated_at = ? WHERE id = ?`, uploadedSize, updatedAt.Unix(), id)
 	return err
+}
+
+// ListStale returns upload sessions that have not been touched since the
+// cutoff, so maintenance can remove their partial files.
+func (s *UploadSessionStore) ListStale(updatedBefore int64) ([]UploadSession, error) {
+	rows, err := s.db.Query(`SELECT id, room_code, file_name, file_size, mime_type, chunk_size, uploaded_size, stored_path, created_at, updated_at FROM upload_sessions WHERE updated_at < ? ORDER BY updated_at ASC`, updatedBefore)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []UploadSession
+	for rows.Next() {
+		var session UploadSession
+		if err := rows.Scan(&session.ID, &session.RoomCode, &session.FileName, &session.FileSize, &session.MimeType, &session.ChunkSize, &session.UploadedSize, &session.StoredPath, &session.CreatedAt, &session.UpdatedAt); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
 }
 
 func (s *UploadSessionStore) Delete(id string) error {

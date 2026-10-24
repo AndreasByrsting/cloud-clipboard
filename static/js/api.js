@@ -15,13 +15,14 @@ window.CloudClipboardApi = {
       data = await response.json();
     }
     if (!response.ok) {
-      throw new Error(data?.error || response.statusText || 'request failed');
+      const err = new Error(data?.error || response.statusText || 'request failed');
+      if (data && data.code !== undefined) err.code = data.code;
+      throw err;
     }
     return data;
   },
 
   // Room
-  listRooms() { return this.request({ url: '/api/rooms' }); },
   createRoom() { return this.request({ method: 'POST', url: '/api/rooms' }); },
   getRoom(roomCode) { return this.request({ url: `/api/rooms/${roomCode}/detail` }); },
   updateRoomName(roomCode, roomName) { return this.request({ method: 'POST', url: `/api/rooms/${roomCode}/name`, body: { roomName } }); },
@@ -35,24 +36,29 @@ window.CloudClipboardApi = {
   async createUploadSession(roomCode, file) {
     return this.request({ method: 'POST', url: `/api/rooms/${roomCode}/uploads`, body: { fileName: file.name, fileSize: file.size, mimeType: file.type || 'application/octet-stream' } });
   },
-  uploadChunk(uploadId, chunk) {
+  uploadChunk(roomCode, uploadId, chunk) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', `/api/messages/uploads/${uploadId}/chunk`, true);
+      xhr.open('PUT', `/api/rooms/${roomCode}/uploads/${uploadId}/chunk`, true);
       xhr.withCredentials = true;
       xhr.onreadystatechange = () => {
         if (xhr.readyState !== 4) return;
         let data = null;
         try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (_) {}
-        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
-        else reject(new Error(data?.error || xhr.statusText || 'request failed'));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          const err = new Error(data?.error || xhr.statusText || 'request failed');
+          if (data && data.code !== undefined) err.code = data.code;
+          reject(err);
+        }
       };
       xhr.onerror = () => reject(new Error('network error'));
       xhr.send(chunk);
     });
   },
-  finalizeUpload(uploadId) {
-    return this.request({ method: 'POST', url: `/api/messages/uploads/${uploadId}/complete` });
+  finalizeUpload(roomCode, uploadId) {
+    return this.request({ method: 'POST', url: `/api/rooms/${roomCode}/uploads/${uploadId}/complete` });
   },
   uploadFile(roomCode, file, callbacks) {
     return new Promise(async (resolve, reject) => {
@@ -62,11 +68,11 @@ window.CloudClipboardApi = {
         let uploaded = 0;
         for (let offset = 0; offset < file.size; offset += chunkSize) {
           const chunk = file.slice(offset, offset + chunkSize);
-          await this.uploadChunk(session.id, chunk);
+          await this.uploadChunk(roomCode, session.id, chunk);
           uploaded += chunk.size;
           if (callbacks?.onProgress) callbacks.onProgress(uploaded, file.size);
         }
-        const data = await this.finalizeUpload(session.id);
+        const data = await this.finalizeUpload(roomCode, session.id);
         resolve(data);
       } catch (err) {
         reject(err);
@@ -79,9 +85,12 @@ window.CloudClipboardApi = {
   },
 
   // Message actions
-  deleteMessage(id) { return this.request({ method: 'DELETE', url: `/api/messages/${id}` }); },
-  togglePin(id) { return this.request({ method: 'POST', url: `/api/messages/${id}/pin` }); },
-  downloadFile(messageId) { return `/api/messages/${messageId}/file`; },
+  deleteMessage(roomCode, id) { return this.request({ method: 'DELETE', url: `/api/rooms/${roomCode}/messages/${id}` }); },
+  togglePin(roomCode, id) { return this.request({ method: 'POST', url: `/api/rooms/${roomCode}/messages/${id}/pin` }); },
+  downloadFile(roomCode, messageId, inline = false) {
+    const path = `/api/rooms/${roomCode}/messages/${messageId}/file`;
+    return inline ? `${path}?inline=1` : path;
+  },
 
   // Public bootstrap
   bootstrapStatus() { return this.request({ url: '/api/bootstrap/status' }); },
@@ -91,8 +100,8 @@ window.CloudClipboardApi = {
   getSession() { return this.request({ url: '/api/admin/session' }); },
   login(password) { return this.request({ method: 'POST', url: '/api/admin/login', body: { password } }); },
   logout() { return this.request({ method: 'POST', url: '/api/admin/logout' }); },
-  adminChangePassword(newPassword, confirmPassword) {
-    return this.request({ method: 'POST', url: '/api/admin/password', body: { newPassword, confirmPassword } });
+  adminChangePassword(currentPassword, newPassword, confirmPassword) {
+    return this.request({ method: 'POST', url: '/api/admin/password', body: { currentPassword, newPassword, confirmPassword } });
   },
   listAdminRooms(page, pageSize) {
     const p = new URLSearchParams();
