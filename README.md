@@ -15,10 +15,13 @@
 
 
 ## 项目预览
-<img width="1361" height="1032" alt="image" src="https://github.com/user-attachments/assets/f4cc7d49-3db8-48e6-80f0-c673179952ff" />
-<img width="1361" height="1032" alt="image" src="https://github.com/user-attachments/assets/fc88f697-13f2-4a03-8586-48c9a030fe6c" />
-<img width="1361" height="1032" alt="image" src="https://github.com/user-attachments/assets/400b576b-e2ab-4895-acb3-20c88a088d23" />
-<img width="432" height="880" alt="image" src="https://github.com/user-attachments/assets/322592a9-d9ae-43ba-a8d3-ee576f458970" />
+<img width="1523" height="1013" alt="image" src="https://github.com/user-attachments/assets/c52c8f49-e3e2-4586-94ae-63058751f219" />
+<img width="1523" height="1013" alt="image" src="https://github.com/user-attachments/assets/5f437071-1e7b-4c14-a3d1-eecbf8d42b0b" />
+<img width="1523" height="1013" alt="image" src="https://github.com/user-attachments/assets/9fbf76ab-1fa5-496f-ac76-29e9e0c23a78" />
+<img width="1523" height="1013" alt="image" src="https://github.com/user-attachments/assets/cf983047-d68a-41b1-8a69-89b628c22b0e" />
+<img width="870" height="932" alt="新建项目" src="https://github.com/user-attachments/assets/9db98718-ee4a-4bc2-ba4b-805a5f910de4" />
+
+
 
 ## 快速开始
 ### 本地运行
