@@ -78,7 +78,39 @@ services:
 | APP_DB_PATH | ./data/clipboard.db | SQLite 数据库文件路径 |
 | APP_UPLOAD_DIR | ./data/uploads | 文件上传存储目录 |
 | APP_CLEANUP_INTERVAL_SEC | 60 | 过期数据定时清理间隔（单位：秒） |
-| APP_RESET_ADMIN_PASSWORD | 空 | 可在后台重置管理员密码 |
+| APP_RESET_ADMIN_PASSWORD | 空 | 启动时用该值覆盖管理员密码；确认登录后请移除该变量 |
+
+## 管理员密码
+
+- **初始密码**：`123456789`。首次启动且未设置 `APP_RESET_ADMIN_PASSWORD` 时，会创建该密码，并在控制台打印一次。
+- 首次登录后必须修改密码；未修改前，除登录/改密/登出外的管理接口会被拒绝。
+- **忘记密码（Docker）**：设置 `APP_RESET_ADMIN_PASSWORD=新密码` 后重启或重建容器即可覆盖现有密码，无需删除数据卷。重置会同时取消“初始密码未修改”标记。
+  ```bash
+  # 使用 docker run 时（容器已存在需先删除旧容器，数据卷不受影响）
+  docker rm -f cloud-clipboard
+  docker run -d --name cloud-clipboard \
+    -p 8080:8080 \
+    -v cloud-clipboard-data:/data \
+    -e APP_RESET_ADMIN_PASSWORD='NewPassword123' \
+    andreasgyh/cloud-clipboard:latest
+  ```
+  ```yaml
+  # docker compose：修改 environment 后重建
+  services:
+    cloud-clipboard:
+      image: andreasgyh/cloud-clipboard:latest
+      ports: ["8080:8080"]
+      volumes: ["./data:/data"]
+      environment:
+        - APP_RESET_ADMIN_PASSWORD=NewPassword123
+      restart: unless-stopped
+  ```
+  ```bash
+  docker compose up -d --force-recreate
+  ```
+- 重置成功后请**移除该环境变量并再次重建容器**；否则每次启动都会把密码重置成该值。
+- `docker restart` 只会重启现有容器，不会应用 `docker run`/compose 文件里新加的环境变量；需要重建容器。
+- 直接用 `go run .` 运行时同理：`APP_RESET_ADMIN_PASSWORD=NewPassword123 go run .`，或先 `export` 再启动。
 
 ## 打包编译
 ```bash

@@ -24,5 +24,5 @@ func readJSON(r *http.Request, dst any) error {
 }
 
 func errorJSON(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	writeJSON(w, status, map[string]string{"error": localizeAPIErrorMessage(message)})
 }

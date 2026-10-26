@@ -59,16 +59,34 @@ func main() {
 
 	adminStore := store.NewAdminStore(database)
 	adminService := service.NewAdminService(adminStore)
+	_, adminExisted, statusErr := adminService.Status()
+	if statusErr != nil {
+		logger.Fatal("check admin credentials: %v", statusErr)
+	}
 	if err := adminService.EnsureInitialized(cfg.ResetAdminPassword, now); err != nil {
 		logger.Fatal("ensure admin credentials: %v", err)
 	}
-	// 检查是否已修改管理员密码
-	cred, found, _ := adminService.Status()
-	if found && cred.DefaultPasswordActive {
+	switch {
+	case cfg.ResetAdminPassword != "":
 		logger.Warn("============================================")
-		logger.Warn(" 初始管理员密码尚未修改")
-		logger.Warn(" 请尽快登录管理后台修改密码，改密前管理接口会被拒绝")
+		logger.Warn(" 管理员密码已通过 APP_RESET_ADMIN_PASSWORD 重置")
+		logger.Warn(" 确认登录成功后，请移除该环境变量并重新创建容器")
 		logger.Warn("============================================")
+	case !adminExisted:
+		logger.Warn("============================================")
+		logger.Warn(" 首次启动：已创建管理员账号")
+		logger.Warn(" 初始管理员密码: %s", config.DefaultAdminPassword)
+		logger.Warn(" 登录后请立即修改密码")
+		logger.Warn("============================================")
+	default:
+		// 检查是否已修改管理员密码
+		cred, found, _ := adminService.Status()
+		if found && cred.DefaultPasswordActive {
+			logger.Warn("============================================")
+			logger.Warn(" 初始管理员密码尚未修改")
+			logger.Warn(" 请尽快登录管理后台修改密码，改密前管理接口会被拒绝")
+			logger.Warn("============================================")
+		}
 	}
 
 	roomStore := store.NewRoomStore(database)

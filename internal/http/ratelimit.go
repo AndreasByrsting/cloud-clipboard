@@ -147,7 +147,7 @@ func writeRateLimited(w http.ResponseWriter, retryAfter time.Duration) {
 	}
 	w.Header().Set("Retry-After", strconv.Itoa(seconds))
 	writeJSON(w, http.StatusTooManyRequests, map[string]string{
-		"error": "too many failed login attempts, try again later",
+		"error": "登录失败次数过多，请稍后再试",
 		"code":  "rate_limited",
 	})
 }

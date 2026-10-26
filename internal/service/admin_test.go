@@ -43,7 +43,7 @@ func TestChangePasswordRequiresCurrentPassword(t *testing.T) {
 		t.Fatalf("seed admin credentials: %v", err)
 	}
 
-	if err := svc.ChangePassword("wrong-password", "new-password", now); err == nil || err.Error() != "current password is incorrect" {
+	if err := svc.ChangePassword("wrong-password", "new-password", now); err == nil || err.Error() != "当前密码不正确" {
 		t.Fatalf("ChangePassword with wrong current password = %v", err)
 	}
 

@@ -127,7 +127,7 @@ func (s *SessionStore) Require(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if session.PasswordChangeRequired && !passwordChangeAllowedPath(r.URL.Path) {
 			writeJSON(w, http.StatusForbidden, map[string]string{
-				"error": "must change default password",
+				"error": "请先修改初始管理员密码",
 				"code":  "password_change_required",
 			})
 			return

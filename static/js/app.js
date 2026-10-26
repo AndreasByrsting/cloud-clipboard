@@ -106,10 +106,10 @@
       const body = card.querySelector('.message-body');
       const img = body?.querySelector('.image-message');
       const pre = body?.querySelector('.message-text');
-      const hint = card.querySelector('.message-expand-hint');
+      const toggle = card.querySelector('.message-expand-toggle');
       if (img) { img.classList.toggle('expanded', expanded); img.classList.toggle('collapsed', !expanded); }
       if (pre) { pre.classList.toggle('expanded', expanded); pre.classList.toggle('collapsed', !expanded); }
-      if (hint) { hint.textContent = expanded ? '点击收起' : '点击展开'; }
+      if (toggle) { toggle.textContent = expanded ? '点击收起' : '点击展开'; }
     }
   }
 
@@ -144,7 +144,20 @@
     updateConnectionStatus();
   }
 
+  function humanizeErrorMessage(message) {
+    const text = typeof message === 'string' ? message.trim() : '';
+    if (!text) return '操作失败，请稍后重试';
+    if (/[\u3400-\u9fff]/.test(text)) return text;
+    if (/failed to fetch|network|load failed/i.test(text)) {
+      return '网络连接失败，请检查网络后重试';
+    }
+    if (/not found/i.test(text)) return '请求的资源不存在';
+    if (/unauthorized/i.test(text)) return '登录状态已失效，请重新登录';
+    return '操作失败，请稍后重试';
+  }
+
   function banner(type, msg) {
+    if (type === 'error' && msg) msg = humanizeErrorMessage(msg);
     if (bannerTimeout) clearTimeout(bannerTimeout);
     if (type === 'error') { state.error = msg; state.success = ''; state.notice = ''; }
     else if (type === 'success') { state.success = msg; state.error = ''; state.notice = ''; }
@@ -467,8 +480,9 @@
   }
 
   function closeRecentRoomsDrawer() {
-    if (!state.recentRoomsDrawerOpen) return;
     state.recentRoomsDrawerOpen = false;
+    const drawer = document.getElementById('recent-rooms-drawer');
+    if (drawer) drawer.classList.remove('open');
     updateRecentRoomsDrawer();
   }
 
@@ -574,8 +588,8 @@
                 <aside class="sidebar ${!state.currentRoom ? 'is-disconnected' : ''} ${state.workspaceTransition ? `is-${state.workspaceTransition}` : ''}" id="sidebar"></aside>
                 <section class="main-panel ${!state.currentRoom ? 'is-disconnected' : ''} ${state.workspaceTransition ? `is-${state.workspaceTransition}` : ''}" id="main-panel">
                   <div id="message-area"></div>
-                  <div id="composer-host"></div>
                 </section>
+                <div id="composer-host"></div>
               </div>
             </div>
             <div class="flip-back app-view-face">
@@ -656,6 +670,7 @@
     lastComposerRoom = state.currentRoom.roomCode;
     host.innerHTML = renderComposer();
     bindComposer(host);
+    autoGrowComposer(host.querySelector('#draft-input'));
     updateComposeMeta();
 
     const input = host.querySelector('#draft-input');
@@ -686,8 +701,19 @@
     });
     input.addEventListener('input', () => {
       state.draft = input.value;
+      autoGrowComposer(input);
       updateComposeMeta();
     });
+  }
+
+  // 输入框随内容自动增高，超过上限后内部滚动；不再依赖右下角拖拽手柄。
+  function autoGrowComposer(input) {
+    if (!input) return;
+    const maxHeight = isMobileLayout() ? 140 : 220;
+    input.style.height = 'auto';
+    const nextHeight = Math.min(input.scrollHeight, maxHeight);
+    input.style.height = `${nextHeight}px`;
+    input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden';
   }
 
   function updateComposeMeta() {
@@ -974,6 +1000,7 @@
     if (state.recentRoomsDrawerOpen) {
       // 下一帧添加 open class 触发动画，同时定位
       requestAnimationFrame(() => {
+        if (!state.recentRoomsDrawerOpen) return;
         drawer.classList.add('open');
         const btn = document.querySelector('[data-action="toggle-recent-rooms"]');
         const aside = drawer.querySelector('.recent-rooms-drawer');
@@ -1058,7 +1085,7 @@
 
         <!-- 操作按钮 -->
         <div class="room-actions-row">
-          ${canExt ? `<button class="btn btn-secondary btn-sm" data-action="extend-room">续期 ${extendHours}h</button>` : ''}
+          ${canExt ? `<button class="btn btn-secondary btn-sm" data-action="extend-room">续期 ${extendHours} 小时</button>` : ''}
           ${!room.isPermanent ? '<button class="btn btn-secondary btn-sm" data-action="permanent-room">设为长期</button>' : ''}
           <button class="btn btn-danger btn-sm" data-action="destroy-room">销毁</button>
           <div class="room-actions-spacer"></div>
@@ -1092,7 +1119,7 @@
               ${uploadInFlight ? `<div class="upload-progress"><div class="upload-progress-bar" style="width:${state.uploadProgressPct}%"></div></div><div class="upload-progress-meta">${state.uploadProgressPct}% · ${formatSize(state.uploadTransferredBytes)} · ${formatSpeed(state.uploadSpeedBps)}</div>` : ''}
             </div>
           ` : `
-            <textarea id="draft-input" rows="3" placeholder="${isMobileLayout() ? '输入文本消息...' : '输入文本消息... (Enter 发送，Shift+Enter 换行)'}">${esc(state.draft)}</textarea>
+            <textarea id="draft-input" rows="1" placeholder="${isMobileLayout() ? '输入文本消息…' : '输入文本消息…（回车发送，Shift + 回车换行）'}">${esc(state.draft)}</textarea>
           `}
           <div class="compose-toolbar">
             <button class="btn btn-secondary btn-sm" id="upload-trigger-btn" data-action="trigger-upload" title="选择文件">
@@ -1138,7 +1165,7 @@
         <div class="github-star-block">
           <a href="https://github.com/AndreasByrsting/cloud-clipboard" target="_blank" rel="noopener" class="github-star-link">
             <svg class="github-star-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            Star on GitHub
+            在 GitHub 上点个 Star
           </a>
         </div>
       </div>`;
@@ -1222,11 +1249,11 @@
             </div>
             <div class="admin-charts-row">
               <div class="admin-chart-card">
-                <div class="admin-chart-title">24h 房间创建趋势</div>
+                <div class="admin-chart-title">24 小时房间创建趋势</div>
                 <div class="admin-chart-wrap">${renderChartCanvas(state.adminStats.roomChart || [], 'room-chart', '--accent')}</div>
               </div>
               <div class="admin-chart-card">
-                <div class="admin-chart-title">24h 消息创建趋势</div>
+                <div class="admin-chart-title">24 小时消息创建趋势</div>
                 <div class="admin-chart-wrap">${renderChartCanvas(state.adminStats.messageChart || [], 'msg-chart', '--success')}</div>
               </div>
             </div>
@@ -1501,7 +1528,7 @@
         : isFile
           ? `<div class="message-file ${fileExpired ? 'file-expired-card' : ''}"><span class="message-file-name">${esc(msg.fileName || '未命名文件')}</span><span class="message-file-size">${formatSize(msg.fileSize)}</span>${fileExpired ? '<span class="file-expired-hint">文件已过期</span>' : ''}</div>`
           : `<pre class="message-text ${expanded ? 'expanded' : 'collapsed'}">${linkifyText(msg.textContent || '')}</pre>`}
-          ${expandable ? `<div class="message-expand-hint">${expanded ? '点击收起' : '点击展开'}</div>` : ''}
+          ${expandable ? `<button type="button" class="message-expand-toggle" data-action="toggle-message-expand" data-msg-id="${msg.id}">${expanded ? '点击收起' : '点击展开'}</button>` : ''}
         </div>
         <div class="message-actions">
           ${!isFile ? `<button class="msg-action-btn" data-action="copy-message" data-msg-id="${msg.id}" title="复制">${renderIcon('copy', '复制', 'msg-action-icon')}</button>` : ''}
@@ -1520,6 +1547,9 @@
       if (state.mobileFabExpanded && !e.target.closest('#floating-actions')) {
         closeMobileFabMenu();
       }
+      if (state.recentRoomsDrawerOpen && !e.target.closest('#recent-rooms-drawer') && !e.target.closest('[data-action="toggle-recent-rooms"]')) {
+        closeRecentRoomsDrawer();
+      }
       if (state.accentPickerOpen && !e.target.closest('#accent-picker-drawer') && !e.target.closest('[data-action="toggle-accent-picker"]')) {
         closeAccentPicker();
       }
@@ -1528,6 +1558,13 @@
       // 如果点击的是消息中的外部链接，不要拦截，让浏览器打开新标签页
       if (e.target.closest('a[target="_blank"]')) return;
       const action = btn.dataset.action;
+      // 展开状态下，正文区域只用于选择/复制，不再整块点击收起。
+      // 只有卡片底部的“点击收起”按钮才会收起。
+      if (action === 'toggle-message-expand') {
+        const card = document.getElementById(`msg-${btn.dataset.msgId}`);
+        const isToggleButton = btn.classList.contains('message-expand-toggle');
+        if (card && card.classList.contains('expanded') && !isToggleButton) return;
+      }
       e.preventDefault();
 
       switch (action) {
@@ -1699,7 +1736,8 @@
         const draftInput = document.getElementById('draft-input');
         if (draftInput) {
           draftInput.value = state.draft;
-          draftInput.focus();
+          autoGrowComposer(draftInput);
+          draftInput.focus({ preventScroll: true });
         }
       }
     });
@@ -1717,6 +1755,9 @@
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     app.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    window.addEventListener('resize', () => {
+      autoGrowComposer(document.getElementById('draft-input'));
+    }, { passive: true });
   }
 
   function cancelConfirm() {
@@ -1943,6 +1984,7 @@
     } catch (e) {
       if (token !== activeEnterToken) return false;
       leaveCurrentRoom();
+      closeRecentRoomsDrawer();
       if (/不存在/.test(e.message) || /not found/i.test(e.message)) removeRecentRoom(normalized);
       if (opts.syncHash !== false) setHash('');
       render();
@@ -1984,6 +2026,7 @@
       const input = document.getElementById('draft-input');
       if (input) {
         input.value = '';
+        autoGrowComposer(input);
         input.focus({ preventScroll: true });
       }
       updateMessages();

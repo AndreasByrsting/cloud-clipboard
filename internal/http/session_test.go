@@ -140,7 +140,7 @@ func TestRequirePasswordChangeGate(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body["error"] != "must change default password" {
+	if body["error"] != "请先修改初始管理员密码" {
 		t.Fatalf("error = %q", body["error"])
 	}
 	if body["code"] != "password_change_required" {

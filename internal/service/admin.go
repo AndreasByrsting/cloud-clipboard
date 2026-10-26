@@ -95,10 +95,10 @@ func (s *AdminService) ChangePassword(currentPassword, newPassword string, now t
 		return err
 	}
 	if !matched {
-		return errors.New("current password is incorrect")
+		return errors.New("当前密码不正确")
 	}
 	if len(strings.TrimSpace(newPassword)) < 8 {
-		return errors.New("new password must be at least 8 characters")
+		return errors.New("新密码至少 8 位")
 	}
 
 	hash, err := hashPassword(newPassword)
