@@ -27,7 +27,7 @@
 }
 
 .countdown-warning {
-  animation: countdown-warn 2.2s ease-in-out infinite;
+  color: var(--warning);
 }
 
 @keyframes blink {
@@ -61,7 +61,12 @@
 }
 
 .message-card.is-new {
-  animation: card-in 360ms var(--ease-spring) both;
+  animation: none;
+}
+
+/* 只给最新插入的一条消息做入场，避免整列表重渲染时一起闪动。 */
+.message-stream > .message-card.is-new:first-child {
+  animation: card-in 280ms var(--ease-spring) both;
 }
 
 @keyframes fade-up {
